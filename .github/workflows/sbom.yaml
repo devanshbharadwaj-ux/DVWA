@@ -1,0 +1,33 @@
+name: Syft SBOM to DefectDojo
+
+on:
+  push:
+    branches:
+      - master   
+
+jobs:
+  syft-sbom:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Generate SBOM with Syft (CycloneDX JSON)
+        run: syft dir:. -o cyclonedx-json > sbom.json
+        
+      - name: Scan SBOM with Grype (CycloneDX vuln report)
+        run: grype sbom:sbom.json -o cyclonedx-json > vuln-cyclonedx.json
+        
+      - name: Upload Vulnerability Report to DefectDojo
+        run: |
+          curl -X POST "${{ secrets.DEFECTDOJO_HOST }}/api/v2/import-scan/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_API_KEY }}" \
+            -F "engagement=${{ secrets.DEFECTDOJO_ENGAGEMENT_ID }}" \
+            -F "scan_type=CycloneDX" \
+            -F "file=@vuln-cyclonedx.json"
