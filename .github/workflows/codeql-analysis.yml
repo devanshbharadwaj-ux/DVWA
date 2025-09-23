@@ -1,4 +1,4 @@
-name: "CodeQL with-DefectDojo Upload"
+name: "CodeQL with DefectDojo CE Upload"
 
 on:
   push:
@@ -13,36 +13,38 @@ jobs:
       security-events: write   # Required for code scanning alerts
       actions: read
       contents: read
+
     steps:
+      # Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # Detect repository languages
       - name: Detect repository languages
         id: detect
         run: |
           echo "Fetching languages via GitHub API..."
-          # Get JSON of languages
           LANG_JSON=$(curl -s -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             https://api.github.com/repos/${GITHUB_REPOSITORY}/languages)
           
-          # Convert JSON keys to comma-separated list
           LANGS=$(echo $LANG_JSON | jq -r 'keys | join(",")')
-          
-          # Map GitHub language names to CodeQL language names
-          # Adjust as needed; common mappings:
           LANGS=$(echo $LANGS | sed -E 's/TypeScript/javascript/g; s/C\+\+/cpp/g; s/C/C/g; s/JavaScript/javascript/g; s/Python/python/g; s/Java/java/g')
           
           echo "Detected languages: $LANGS"
           echo "languages=$LANGS" >> $GITHUB_OUTPUT
 
+      # Initialize CodeQL
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: javascript,python
 
+      # Autobuild
       - name: Autobuild
         uses: github/codeql-action/autobuild@v3
 
+      # Perform CodeQL Analysis
       - name: Perform CodeQL Analysis
         id: analyze
         uses: github/codeql-action/analyze@v3
@@ -56,15 +58,24 @@ jobs:
           name: codeql-sarif-results
           path: results
 
-      # Upload SARIF to DefectDojo
-      - name: Upload SARIF to DefectDojo
+      # Convert CodeQL SARIF to ESLint JSON for DefectDojo CE
+      - name: Convert SARIF to ESLint JSON
         run: |
-          for f in results/*.sarif; do
+         pip install json
+         for f in results/*.sarif; do
+           python3 convert_sarif_to_eslint.py "$f"
+         done
+ 
+
+      # Upload converted JSON to DefectDojo CE
+      - name: Upload Converted JSON to DefectDojo
+        run: |
+          for f in results/converted_*.json; do
             echo "Uploading $f to DefectDojo..."
             curl -s -o response.json -w "%{http_code}" -X POST "${{ secrets.DEFECTDOJO_HOST }}/api/v2/import-scan/" \
               -H "Authorization: Token ${{ secrets.DEFECTDOJO_API_KEY }}" \
               -F "file=@$f;type=application/json" \
-              -F "scan_type=CodeQL" \
+              -F "scan_type=ESLint" \
               -F "product_name=MyProduct" \
               -F "engagement_name=code-ql" \
               -F "auto_create_context=true" \
@@ -73,6 +84,4 @@ jobs:
             echo "Response:"
             cat response.json
           done
-
-
 
