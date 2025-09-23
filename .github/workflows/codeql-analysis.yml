@@ -62,7 +62,7 @@ jobs:
       - name: Convert SARIF to ESLint JSON
         run: |
          for f in results/*.sarif; do
-           python3 convert_sarif_to_eslint.py "$f"
+           python3 .github/workflows/convert_sarif_to_eslint.py "$f"
          done
  
 
