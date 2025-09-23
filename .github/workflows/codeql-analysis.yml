@@ -64,7 +64,7 @@ jobs:
             curl -s -o response.json -w "%{http_code}" -X POST "${{ secrets.DEFECTDOJO_HOST }}/api/v2/import-scan/" \
               -H "Authorization: Token ${{ secrets.DEFECTDOJO_API_KEY }}" \
               -F "file=@$f;type=application/json" \
-              -F "scan_type=Sarif" \
+              -F "scan_type=CodeQL" \
               -F "product_name=MyProduct" \
               -F "engagement_name=code-ql" \
               -F "auto_create_context=true" \
