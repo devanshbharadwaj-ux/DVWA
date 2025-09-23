@@ -61,7 +61,6 @@ jobs:
       # Convert CodeQL SARIF to ESLint JSON for DefectDojo CE
       - name: Convert SARIF to ESLint JSON
         run: |
-         pip install json
          for f in results/*.sarif; do
            python3 convert_sarif_to_eslint.py "$f"
          done
